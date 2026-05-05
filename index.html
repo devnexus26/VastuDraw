@@ -241,7 +241,6 @@
 <script>
     // ── Realistic Dynamic SVG Engine (Fixed Colors & Pillows) ──────
     function getFurnitureSVG(type, fill, border, angle = 0) {
-        // Strict HEX colors required since we are base64 encoding (no %23 needed)
         const cFill   = fill || '#cbd5e1';
         const cBorder = border || '#475569';
         let inner = '';
@@ -304,7 +303,6 @@
                 inner = `<rect width="100" height="100" fill="${cFill}" stroke="${cBorder}" stroke-width="2" rx="4"/>`;
         }
 
-        // SVG rotation magic (pillows spin to walls correctly)
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g transform="rotate(${angle}, 50, 50)">${inner}</g></svg>`;
         return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
     }
@@ -451,7 +449,6 @@
         const id = 'tab_' + (++tabCounter);
         const def = ROOM_DEFS[typeName];
 
-        // Count existing tabs of same type to generate a label like "Bedroom 2"
         const sameTypeCount = Object.values(tabs).filter(t => t.typeName === typeName).length;
         const tabLabel = sameTypeCount === 0 ? typeName : `${typeName} ${sameTypeCount + 1}`;
 
@@ -474,10 +471,45 @@
         const stg = new Konva.Stage({ container: 'canvas_' + id, width: wrapper2.offsetWidth, height: wrapper2.offsetHeight });
         const lyr = new Konva.Layer();
         stg.add(lyr);
+        
+        // --- Updated Transformer with Broad Margins & Drag Balls ---
         const tf = new Konva.Transformer({
-            rotateEnabled: false, keepRatio: false,
-            borderStroke: '#0ea5e9', anchorStroke: '#0ea5e9', anchorFill: '#ffffff',
-            boundBoxFunc: (oldBox, newBox) => (newBox.width < SCALE || newBox.height < SCALE) ? oldBox : newBox
+            rotateEnabled: false, 
+            keepRatio: false,
+            borderStroke: '#0ea5e9', 
+            borderStrokeWidth: 4, 
+            anchorStroke: '#0ea5e9', 
+            anchorFill: '#ffffff',
+            anchorStrokeWidth: 2,
+            enabledAnchors: ['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left'],
+            boundBoxFunc: (oldBox, newBox) => (newBox.width < SCALE || newBox.height < SCALE) ? oldBox : newBox,
+            
+            anchorStyleFunc: (anchor) => {
+                const isCorner = anchor.hasName('top-left') || anchor.hasName('top-right') || 
+                                 anchor.hasName('bottom-left') || anchor.hasName('bottom-right');
+                
+                if (isCorner) {
+                    anchor.cornerRadius(12); 
+                    anchor.width(24);
+                    anchor.height(24);
+                    anchor.offsetX(12);
+                    anchor.offsetY(12);
+                } else {
+                    anchor.cornerRadius(4);
+                    const isHorizontal = anchor.hasName('top-center') || anchor.hasName('bottom-center');
+                    if (isHorizontal) {
+                        anchor.width(80); 
+                        anchor.height(14); 
+                        anchor.offsetX(40);
+                        anchor.offsetY(7);
+                    } else {
+                        anchor.width(14); 
+                        anchor.height(80); 
+                        anchor.offsetX(7);
+                        anchor.offsetY(40);
+                    }
+                }
+            }
         });
         lyr.add(tf);
 
@@ -654,30 +686,6 @@
         setTimeout(() => selectItem(roomGrp), 80);
     }
 
-    function addAutoCompass(tab, cx, cy, r) {
-        if (tab.compassNode) return; 
-
-        const group = new Konva.Group({ x: cx - r, y: cy - r, draggable: true, name: 'compass', itemType: 'Compass Overlay', width: r*2, height: r*2 });
-        group.add(new Konva.Rect({ width: r*2, height: r*2, opacity: 0 }));
-
-        const cGrp = new Konva.Group({ name: 'compass-art', x: r, y: r });
-        cGrp.add(new Konva.Circle({ radius: r,     stroke: '#e11d48', strokeWidth: 2, dash: [4,3] }));
-        cGrp.add(new Konva.Circle({ radius: r - 6, stroke: '#e11d48', strokeWidth: 0.8 }));
-        cGrp.add(new Konva.Line({ points: [-r, 0, r, 0], stroke: '#e11d48', strokeWidth: 1, opacity: 0.4 }));
-        cGrp.add(new Konva.Line({ points: [0, -r, 0, r], stroke: '#e11d48', strokeWidth: 1, opacity: 0.4 }));
-        cGrp.add(new Konva.Line({ points: [0, 0, -9, 8, 0, -(r-10), 9, 8, 0, 0], fill: '#e11d48', stroke: '#e11d48', strokeWidth: 0.5, closed: true }));
-        cGrp.add(new Konva.Line({ points: [0, 0, -9, -8, 0, r-10,  9, -8, 0, 0], fill: '#64748b', stroke: '#64748b', strokeWidth: 0.5, closed: true }));
-        cGrp.add(new Konva.Text({ text: 'N', x: -5, y: -r - 14, fontSize: 14, fontStyle: 'bold', fill: '#e11d48', fontFamily: 'Inter' }));
-        cGrp.add(new Konva.Text({ text: 'S', x: -4, y: r + 4,   fontSize: 12, fill: '#64748b', fontFamily: 'Inter' }));
-        cGrp.add(new Konva.Text({ text: 'E', x: r + 4,  y: -5,  fontSize: 12, fill: '#64748b', fontFamily: 'Inter' }));
-        cGrp.add(new Konva.Text({ text: 'W', x: -r - 16, y: -5, fontSize: 12, fill: '#64748b', fontFamily: 'Inter' }));
-
-        group.add(cGrp);
-        group.on('transform', () => { const s = group.scaleX(); group.scaleY(s); });
-        tab.layer.add(group);
-        tab.compassNode = group;
-    }
-
     function placeFurnitureInRoom(roomGroup, item, fx, fy, initialAngle, fS) {
         const s = fS || SCALE;
         let fw = item.w * s, fh = item.h * s;
@@ -794,6 +802,22 @@
         return { x: wrapper.offsetWidth/2 - (w*SCALE)/2, y: wrapper.offsetHeight/2 - (h*SCALE)/2 };
     }
 
+    // ── Click-to-Drop Logic for Palette Items ─────────────────────
+    function clickToDrop(type, w, h, fill, stroke) {
+        if (isMobile()) closeAllPanels(); 
+        if (!activeTabId) { 
+            alert("Please add a room first."); 
+            return; 
+        }
+        const pos = getSmartDropPos(w, h);
+        if (type === 'Compass') {
+            createCompass(pos.x, pos.y, w);
+        } else if (type === 'Sticky') {
+            const safeFill = fill === 'null' ? '#fef08a' : fill; 
+            createSticky(pos.x, pos.y, w, h, safeFill);
+        }
+    }
+
     (function(){
         let lastDist = null;
         function dist(t) { const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
@@ -843,6 +867,7 @@
         return {x, y};
     }
 
+    // ── ORIGINAL SIMPLE COMPASS VECTOR LOGIC ──────────────────────
     function createCompass(x, y, wFeet) {
         const tab = getTab(); if(!tab) return;
         if(tab.compassNode) { alert("Compass already exists in this tab!"); return; }
@@ -863,6 +888,30 @@
         group.add(cGrp);
         group.on('transform',()=>{const s=group.scaleX();group.scaleY(s);});
         tab.layer.add(group); tab.compassNode=group; selectItem(group);
+    }
+
+    function addAutoCompass(tab, cx, cy, r) {
+        if (tab.compassNode) return; 
+
+        const group = new Konva.Group({ x: cx - r, y: cy - r, draggable: true, name: 'compass', itemType: 'Compass Overlay', width: r*2, height: r*2 });
+        group.add(new Konva.Rect({ width: r*2, height: r*2, opacity: 0 }));
+
+        const cGrp = new Konva.Group({ name: 'compass-art', x: r, y: r });
+        cGrp.add(new Konva.Circle({ radius: r,     stroke: '#e11d48', strokeWidth: 2, dash: [4,3] }));
+        cGrp.add(new Konva.Circle({ radius: r - 6, stroke: '#e11d48', strokeWidth: 0.8 }));
+        cGrp.add(new Konva.Line({ points: [-r, 0, r, 0], stroke: '#e11d48', strokeWidth: 1, opacity: 0.4 }));
+        cGrp.add(new Konva.Line({ points: [0, -r, 0, r], stroke: '#e11d48', strokeWidth: 1, opacity: 0.4 }));
+        cGrp.add(new Konva.Line({ points: [0, 0, -9, 8, 0, -(r-10), 9, 8, 0, 0], fill: '#e11d48', stroke: '#e11d48', strokeWidth: 0.5, closed: true }));
+        cGrp.add(new Konva.Line({ points: [0, 0, -9, -8, 0, r-10,  9, -8, 0, 0], fill: '#64748b', stroke: '#64748b', strokeWidth: 0.5, closed: true }));
+        cGrp.add(new Konva.Text({ text: 'N', x: -5, y: -r - 14, fontSize: 14, fontStyle: 'bold', fill: '#e11d48', fontFamily: 'Inter' }));
+        cGrp.add(new Konva.Text({ text: 'S', x: -4, y: r + 4,   fontSize: 12, fill: '#64748b', fontFamily: 'Inter' }));
+        cGrp.add(new Konva.Text({ text: 'E', x: r + 4,  y: -5,  fontSize: 12, fill: '#64748b', fontFamily: 'Inter' }));
+        cGrp.add(new Konva.Text({ text: 'W', x: -r - 16, y: -5, fontSize: 12, fill: '#64748b', fontFamily: 'Inter' }));
+
+        group.add(cGrp);
+        group.on('transform', () => { const s = group.scaleX(); group.scaleY(s); });
+        tab.layer.add(group);
+        tab.compassNode = group;
     }
 
     function updateCompassAngle() {
@@ -918,8 +967,10 @@
         if(group.name()==='compass'){
             cmpEd.style.display='block';
             const art=group.findOne('.compass-art');
-            document.getElementById('compass-angle').value=art.rotation()||0;
-            document.getElementById('angle-val').innerText=(art.rotation()||0)+'°';
+            let displayAngle = Math.round(art.rotation() || 0) % 360;
+            if (displayAngle < 0) displayAngle += 360;
+            document.getElementById('compass-angle').value=displayAngle;
+            document.getElementById('angle-val').innerText=displayAngle+'°';
             return;
         }
         dimEd.style.display='block';
