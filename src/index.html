@@ -1582,7 +1582,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         if(isRoom || isSticky) {
             const textNode = isRoom ? node.findOne('.comment-text') : node.findOne('.text-node');
-            document.getElementById('edit-text-label').textContent = isRoom ? 'Room Note' : 'Sticky Text';
+            document.getElementById('text-edit-label').textContent = isRoom ? 'Room Note' : 'Sticky Text';
             document.getElementById('edit-text-note').value = textNode ? textNode.text() : '';
         }
         if(isRoom) {
