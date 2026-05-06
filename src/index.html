@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VastuDraw Pro 10.0 - Consultant Edition</title>
+    <script src="https://unpkg.com/konva@9.2.0/konva.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── Base Variables ───────────────────────────────────────── */
+        :root { 
+            --primary: #0f172a; --accent: #0ea5e9; --sidebar: #ffffff; 
+            --bg: #f8fafc; --border: #cbd5e1; --text: #334155;
+            --success: #10b981; --danger: #ef4444; --warn: #f59e0b;
+        }
+
+        /* ── Reset & Body ─────────────────────────────────────────── */
+        body { 
+            margin: 0; display: flex; height: 100vh; flex-direction: row;
+            font-family: 'Inter', sans-serif; overflow: hidden; color: var(--text); background: var(--bg);
+            overscroll-behavior: none; 
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        input, textarea, select { -webkit-user-select: auto !important; user-select: auto !important; }
+
+        /* ══════════════════════════════════════════════════════════
+           AUTH OVERLAY
+        ══════════════════════════════════════════════════════════ */
+        #auth-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            display: flex; align-items: center; justify-content: center;
+        }
+        #auth-overlay.hidden { display: none; }
+
+        .auth-card {
+            background: white; border-radius: 16px; padding: 48px;
+            width: 100%; max-width: 400px; box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+            animation: authSlideIn 0.4s ease;
+        }
+        @keyframes authSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .auth-logo {
+            text-align: center; margin-bottom: 32px;
+        }
+        .auth-logo .logo-icon {
+            font-size: 2.5rem; display: block; margin-bottom: 8px;
+        }
+        .auth-logo h1 {
+            font-size: 1.4rem; font-weight: 700; color: #0f172a; margin: 0;
+        }
+        .auth-logo p {
+            font-size: 0.8rem; color: #64748b; margin: 4px 0 0 0;
+        }
+
+        .auth-field { margin-bottom: 20px; }
+        .auth-field label {
+            display: block; font-size: 0.8rem; font-weight: 600;
+            color: #475569; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .auth-field input {
+            width: 100%; box-sizing: border-box;
+            padding: 12px 16px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+            font-family: 'Inter'; font-size: 0.95rem; color: #0f172a;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #f8fafc;
+        }
+        .auth-field input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(14,165,233,0.15);
+            background: white;
+        }
+
+        #auth-error {
+            background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;
+            border-radius: 8px; padding: 10px 14px; font-size: 0.85rem;
+            margin-bottom: 16px; display: none;
+        }
+        #auth-error.visible { display: block; }
+
+        .google-signin-wrap {
+            display: flex; justify-content: center; margin: 8px 0 4px;
+        }
+        .auth-divider {
+            text-align: center; color: #94a3b8; font-size: 0.75rem;
+            margin: 16px 0; position: relative;
+        }
+        .auth-divider::before, .auth-divider::after {
+            content: ''; position: absolute; top: 50%;
+            width: 42%; height: 1px; background: #e2e8f0;
+        }
+        .auth-divider::before { left: 0; }
+        .auth-divider::after { right: 0; }
+        .auth-signing-in {
+            text-align: center; color: #0ea5e9; font-size: 0.85rem;
+            font-weight: 600; padding: 10px; display: none;
+        }
+        .auth-signing-in.visible { display: block; }
+        /* ── Auth tabs (Login / Register) ── */
+        .auth-tabs {
+            display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 24px;
+        }
+        .auth-tab {
+            flex: 1; padding: 10px; text-align: center; font-size: 0.85rem;
+            font-weight: 600; color: #94a3b8; cursor: pointer;
+            border-bottom: 2px solid transparent; margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .auth-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .auth-panel { display: none; }
+        .auth-panel.active { display: block; }
+        #btn-login, #btn-register {
+            width: 100%; padding: 14px; background: var(--accent); color: white;
+            border: none; border-radius: 8px; font-size: 1rem; font-weight: 700;
+            font-family: 'Inter'; cursor: pointer; transition: background 0.2s, transform 0.1s;
+        }
+        #btn-login:hover, #btn-register:hover { background: #0284c7; }
+        #btn-login:active, #btn-register:active { transform: scale(0.98); }
+        #btn-login:disabled, #btn-register:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        .auth-footer {
+            text-align: center; margin-top: 24px;
+            font-size: 0.75rem; color: #94a3b8;
+        }
+
+        /* ══════════════════════════════════════════════════════════
+           APP TOPBAR (role + user info)
+        ══════════════════════════════════════════════════════════ */
+        #app-topbar {
+            position: fixed; top: 0; left: 0; right: 0; height: 44px;
+            background: #0f172a; display: flex; align-items: center;
+            justify-content: space-between; padding: 0 16px; z-index: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        #app-topbar .topbar-left { display: flex; align-items: center; gap: 12px; }
+        #app-topbar .app-brand { color: white; font-weight: 700; font-size: 0.9rem; }
+        #app-topbar .role-badge {
+            padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .role-badge.consultant { background: #0ea5e9; color: white; }
+        .role-badge.client { background: #10b981; color: white; }
+
+        #client-selector-wrap { display: flex; align-items: center; gap: 8px; }
+        #client-selector-wrap label { color: #94a3b8; font-size: 0.75rem; }
+        #client-selector {
+            padding: 5px 10px; border-radius: 6px; border: 1px solid #334155;
+            background: #1e293b; color: white; font-family: 'Inter'; font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        #topbar-right { display: flex; align-items: center; gap: 12px; }
+        #topbar-user { color: #94a3b8; font-size: 0.8rem; }
+        #btn-logout {
+            padding: 5px 12px; border-radius: 6px; border: 1px solid #334155;
+            background: transparent; color: #94a3b8; font-family: 'Inter'; font-size: 0.75rem;
+            cursor: pointer; transition: 0.2s;
+        }
+        #btn-logout:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+        /* ══════════════════════════════════════════════════════════
+           MAIN LAYOUT (adjusted for topbar)
+        ══════════════════════════════════════════════════════════ */
+        #app-shell {
+            display: flex; flex-direction: row; width: 100%;
+            padding-top: 44px; box-sizing: border-box; height: 100vh;
+        }
+
+        #mobile-topbar { display: none; background: var(--primary); padding: 10px 15px; justify-content: space-between; align-items: center; z-index: 2000; flex-shrink: 0; }
+        #mobile-topbar button { background: var(--accent); color: white; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+
+        #palette, #secondary-palette { 
+            background: var(--sidebar);
+            box-shadow: 0 4px 15px -3px rgb(0 0 0 / 0.1); z-index: 10;
+        }
+        #palette { display: flex; flex-direction: column; width: 280px; min-width: 280px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; }
+        #secondary-palette { width: 260px; min-width: 260px; border-left: 1px solid var(--border); display: flex; padding: 0; overflow-y: auto; flex-shrink: 0; flex-direction: column; }
+        #center-panel { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background-color: #f1f5f9; position: relative; }
+
+        /* Tab bar */
+        #tab-bar {
+            display: flex; align-items: stretch; background: var(--primary);
+            overflow-x: auto; flex-shrink: 0; min-height: 48px;
+            scrollbar-width: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        #tab-bar::-webkit-scrollbar { display: none; }
+        .room-tab {
+            display: flex; align-items: center; gap: 8px;
+            padding: 0 18px; cursor: pointer; white-space: nowrap;
+            font-size: 0.85rem; font-weight: 500; color: rgba(255,255,255,0.7);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            transition: background 0.2s, color 0.2s;
+            user-select: none; position: relative;
+        }
+        .room-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+        .room-tab.active { background: #f1f5f9; color: var(--primary); font-weight: 700; }
+        .room-tab.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--accent); }
+        .tab-close { margin-left: 6px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0.6; transition: 0.2s; background: transparent; border: none; cursor: pointer; color: inherit; }
+        .tab-close:hover { background: #ef4444; color: white; opacity: 1; }
+        #tab-empty-hint { padding: 8px 16px; color: rgba(255,255,255,0.5); font-size: 0.8rem; display: flex; align-items: center; font-style: italic; }
+
+        #canvas-wrapper { flex-grow: 1; position: relative; overflow: hidden; }
+        .tab-canvas { position: absolute; inset: 0; display: none; }
+        .tab-canvas.active { display: block; }
+
+        #writing-pad-container { height: 160px; background: white; border-top: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; flex-shrink: 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);}
+        #writing-pad-container textarea { flex-grow: 1; resize: none; border: 1px solid var(--border); padding: 12px; font-family: 'Inter'; font-size: 13px; margin-top: 8px; border-radius: 6px; transition: 0.2s; }
+        #writing-pad-container textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+
+        /* Left palette elements */
+        .header { background: #1e293b; color: white; padding: 18px; font-size: 1.1rem; font-weight: 700; text-align: center; letter-spacing: 0.5px;}
+        .section-title { padding: 12px 15px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; border-bottom: 1px solid var(--border); background: #f8fafc; margin: 0; }
+        .drag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px; }
+        .drag-item { padding: 15px 10px; background: white; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s; font-size: 0.8rem; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .drag-item:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 4px 6px rgba(0,0,0,0.05); transform: translateY(-2px); }
+        .drag-item:active { transform: scale(0.96); }
+        .tools-section { padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .btn-action { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-family: 'Inter'; font-size: 0.9rem; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; box-sizing: border-box;}
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: #0284c7; }
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: var(--text); }
+        .btn-outline:hover { background: #f1f5f9; border-color: #94a3b8;}
+        .btn-export { background: #10b981; color: white; margin-top: auto; border-radius: 0; padding: 18px; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
+        .btn-export:hover { background: #059669; }
+
+        /* Right palette properties */
+        .property-group { padding: 15px; border-bottom: 1px solid var(--border); }
+        .property-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px;}
+        .property-row input { width: 60px; padding: 8px; border: 1px solid var(--border); border-radius: 4px; text-align: center; font-family: 'Inter'; font-weight: 600; font-size: 0.9rem; }
+        .full-width-input { width: 100% !important; box-sizing: border-box; text-align: left !important; padding: 10px; }
+
+        #floating-delete { position: absolute; background: #ef4444; color: white; border: none; border-radius: 50%; width: 36px; height: 36px; font-weight: bold; cursor: pointer; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: none; align-items: center; justify-content: center; font-size: 16px; transition: transform 0.1s; }
+        #floating-delete:hover { background: #dc2626; transform: scale(1.1); }
+        #floating-rotate { position: absolute; background: #0ea5e9; color: white; border: none; border-radius: 50%; width: 36px; height: 36px; font-weight: bold; cursor: pointer; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: none; align-items: center; justify-content: center; font-size: 18px; transition: transform 0.1s; }
+        #floating-rotate:hover { background: #0284c7; transform: scale(1.1); }
+
+        #panel-backdrop { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px); }
+        #panel-backdrop.active { display: block; }
+
+        /* ══════════════════════════════════════════════════════════
+           COMMENTS PANEL
+        ══════════════════════════════════════════════════════════ */
+        #comments-panel {
+            position: fixed; right: 0; top: 44px; bottom: 0; width: 340px;
+            background: white; border-left: 1px solid var(--border);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; z-index: 800;
+            transform: translateX(100%); transition: transform 0.3s ease;
+        }
+        #comments-panel.open { transform: translateX(0); }
+
+        .comments-header {
+            padding: 16px 20px; background: #1e293b; color: white;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .comments-header h3 { margin: 0; font-size: 0.95rem; font-weight: 700; }
+        #btn-close-comments {
+            background: transparent; border: none; color: rgba(255,255,255,0.7);
+            cursor: pointer; font-size: 1.2rem; padding: 4px; line-height: 1;
+        }
+        #btn-close-comments:hover { color: white; }
+
+        #comments-list {
+            flex: 1; overflow-y: auto; padding: 16px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        #comments-empty {
+            text-align: center; color: #94a3b8; font-size: 0.85rem;
+            padding: 40px 20px;
+        }
+
+        .comment-item {
+            border-radius: 10px; padding: 12px 14px;
+            border: 1px solid var(--border); background: #f8fafc;
+        }
+        .comment-item.by-client { border-left: 3px solid #10b981; }
+        .comment-item.by-consultant { border-left: 3px solid #0ea5e9; background: #f0f9ff; }
+        .comment-item.reply { margin-left: 20px; background: #f0fdf4; border-left: 3px solid #86efac; }
+
+        .comment-meta {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .comment-author { font-size: 0.75rem; font-weight: 700; color: #0f172a; }
+        .comment-room { font-size: 0.7rem; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; }
+        .comment-time { font-size: 0.7rem; color: #94a3b8; }
+        .comment-text { font-size: 0.85rem; color: #334155; line-height: 1.5; }
+
+        .btn-reply {
+            margin-top: 8px; padding: 4px 10px; font-size: 0.75rem;
+            border: 1px solid #e2e8f0; border-radius: 4px; background: transparent;
+            color: #0ea5e9; cursor: pointer; font-family: 'Inter'; font-weight: 600;
+        }
+        .btn-reply:hover { background: #f0f9ff; }
+
+        .reply-form { margin-top: 10px; display: none; }
+        .reply-form textarea {
+            width: 100%; box-sizing: border-box; padding: 8px 10px;
+            border: 1px solid var(--border); border-radius: 6px;
+            font-family: 'Inter'; font-size: 0.82rem; resize: none;
+            height: 60px;
+        }
+        .reply-form button {
+            margin-top: 6px; padding: 6px 14px; background: #0ea5e9;
+            color: white; border: none; border-radius: 4px; cursor: pointer;
+            font-family: 'Inter'; font-size: 0.8rem; font-weight: 600;
+        }
+
+        #add-comment-form {
+            padding: 16px; border-top: 1px solid var(--border); flex-shrink: 0;
+            background: #f8fafc;
+        }
+        #add-comment-form h4 { margin: 0 0 10px 0; font-size: 0.82rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+        #comment-room-select {
+            width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px;
+            font-family: 'Inter'; font-size: 0.82rem; margin-bottom: 8px; background: white;
+        }
+        #new-comment-text {
+            width: 100%; box-sizing: border-box; padding: 10px;
+            border: 1px solid var(--border); border-radius: 6px;
+            font-family: 'Inter'; font-size: 0.82rem; resize: none; height: 72px;
+        }
+        #new-comment-text:focus, #comment-room-select:focus {
+            outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+        }
+        #btn-submit-comment {
+            width: 100%; margin-top: 8px; padding: 10px; background: #0f172a;
+            color: white; border: none; border-radius: 6px; font-family: 'Inter';
+            font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: 0.2s;
+        }
+        #btn-submit-comment:hover { background: #1e293b; }
+        #btn-submit-comment:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        /* Comments toggle button */
+        #btn-toggle-comments {
+            position: fixed; bottom: 24px; right: 24px; z-index: 700;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: #0f172a; color: white; border: none; cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-size: 1.4rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s, background 0.2s;
+        }
+        #btn-toggle-comments:hover { transform: scale(1.1); background: #0ea5e9; }
+        .comments-badge {
+            position: absolute; top: -4px; right: -4px; background: #ef4444;
+            color: white; width: 18px; height: 18px; border-radius: 50%;
+            font-size: 0.65rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ══════════════════════════════════════════════════════════
+           TOAST NOTIFICATION
+        ══════════════════════════════════════════════════════════ */
+        #toast {
+            position: fixed; bottom: 90px; right: 24px; z-index: 9000;
+            background: #0f172a; color: white; padding: 12px 20px; border-radius: 8px;
+            font-size: 0.85rem; font-weight: 500; opacity: 0; transform: translateY(10px);
+            transition: opacity 0.3s, transform 0.3s; pointer-events: none;
+            max-width: 300px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        #toast.show { opacity: 1; transform: translateY(0); }
+        #toast.success { border-left: 4px solid #10b981; }
+        #toast.error { border-left: 4px solid #ef4444; }
+        #toast.info { border-left: 4px solid #0ea5e9; }
+
+        /* ══════════════════════════════════════════════════════════
+           LOADING SPINNER (API calls)
+        ══════════════════════════════════════════════════════════ */
+        #api-loading {
+            position: fixed; top: 44px; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #0ea5e9 0%, #10b981 50%, #0ea5e9 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+            z-index: 9998; display: none;
+        }
+        #api-loading.visible { display: block; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ══════════════════════════════════════════════════════════
+           CLIENT READ-ONLY MODE
+        ══════════════════════════════════════════════════════════ */
+        body.client-mode #palette { display: none !important; }
+        body.client-mode #secondary-palette { display: none !important; }
+        body.client-mode #floating-delete { display: none !important; }
+        body.client-mode #floating-rotate { display: none !important; }
+        body.client-mode #writing-pad-container { display: none !important; }
+        body.client-mode .tab-close { display: none !important; }
+        body.client-mode #tab-empty-hint { display: none !important; }
+        body.client-mode #center-panel { pointer-events: none; }
+        body.client-mode #btn-toggle-comments { pointer-events: all; }
+        body.client-mode #comments-panel { pointer-events: all; }
+        body.client-mode #add-comment-form { display: block; }
+
+        /* For consultant mode — hide client comment input */
+        body.consultant-mode #add-comment-form { display: none; }
+
+        /* ── Responsive ───────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            #mobile-topbar { display: flex; }
+            #app-topbar { display: none; }
+            #app-shell { padding-top: 56px; }
+            body { flex-direction: column; }
+            #palette, #secondary-palette { 
+                position: fixed; top: 100px; bottom: 0; z-index: 1000;
+                height: calc(100vh - 100px); 
+                transition: transform 0.3s ease; 
+            }
+            #palette { left: 0; transform: translateX(-100%); width: 280px; display: flex !important; }
+            #palette.open { transform: translateX(0); box-shadow: 2px 0 10px rgba(0,0,0,0.2); }
+            #secondary-palette { right: 0; transform: translateX(100%); width: 280px; display: flex !important; }
+            #secondary-palette.open { transform: translateX(0); box-shadow: -2px 0 10px rgba(0,0,0,0.2); }
+            #comments-panel { width: 100%; }
+            #client-selector-wrap { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── API Loading Bar ─────────────────────────────────────────── -->
+<div id="api-loading"></div>
+
+<!-- ── Toast ──────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     AUTH OVERLAY
+══════════════════════════════════════════════════════════════ -->
+<div id="auth-overlay">
+    <div class="auth-card">
+        <div class="auth-logo">
+            <span class="logo-icon">🏠</span>
+            <h1>VastuDraw Pro</h1>
+            <p>Consultant Platform — Secure Login</p>
+        </div>
+        <div id="auth-error"></div>
+
+        <!-- Tab switcher -->
+        <div class="auth-tabs">
+            <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+            <div class="auth-tab" onclick="switchAuthTab('register')">New Client? Register</div>
+        </div>
+
+        <!-- LOGIN PANEL -->
+        <div class="auth-panel active" id="auth-panel-login">
+            <div class="auth-field">
+                <label>Email Address</label>
+                <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="auth-field">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <button id="btn-login" onclick="handleLogin()">Sign In →</button>
+        </div>
+
+        <!-- REGISTER PANEL -->
+        <div class="auth-panel" id="auth-panel-register">
+            <div class="auth-field">
+                <label>Full Name</label>
+                <input type="text" id="reg-name" placeholder="Ravi Sharma">
+            </div>
+            <div class="auth-field">
+                <label>Email Address</label>
+                <input type="email" id="reg-email" placeholder="you@example.com">
+            </div>
+            <div class="auth-field">
+                <label>Password</label>
+                <input type="password" id="reg-password" placeholder="Min. 6 characters">
+            </div>
+            <button id="btn-register" onclick="handleRegister()">Create Account →</button>
+        </div>
+
+        <div class="auth-footer">
+            Powered by Akshay Vastu Arvind &nbsp;•&nbsp; Passwords are SHA-256 hashed
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     APP TOPBAR
+══════════════════════════════════════════════════════════════ -->
+<div id="app-topbar">
+    <div class="topbar-left">
+        <span class="app-brand">🏠 VastuDraw Pro</span>
+        <span class="role-badge" id="role-badge">—</span>
+        <div id="client-selector-wrap" style="display:none;">
+            <label>Client:</label>
+            <select id="client-selector" onchange="onClientChange()">
+                <option value="">— Select Client —</option>
+            </select>
+        </div>
+    </div>
+    <div id="topbar-right">
+        <span id="topbar-user"></span>
+        <button id="btn-logout" onclick="handleLogout()">Logout</button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MAIN APP SHELL
+══════════════════════════════════════════════════════════════ -->
+<div id="app-shell">
+
+<div id="panel-backdrop" onclick="closeAllPanels()"></div>
+
+<div id="mobile-topbar">
+    <button onclick="togglePanel('palette')">☰ Tools</button>
+    <span style="font-weight:bold; color:white;">VastuDraw Pro</span>
+    <button onclick="togglePanel('secondary-palette')">⚙️ Config</button>
+</div>
+
+<!-- LEFT PALETTE (Consultant only) -->
+<div id="palette">
+    <div class="header">VastuDraw Pro 10.0</div>
+    
+    <div class="section-title">Branding Setup</div>
+    <div class="tools-section" style="padding-top: 5px; padding-bottom: 5px;">
+        <input type="file" id="banner-upload" accept="image/*" style="display:none">
+        <button class="btn-action btn-outline" style="font-size: 0.8rem;" onclick="document.getElementById('banner-upload').click()">🖼️ Lock PDF Banner</button>
+        <div id="banner-status" style="font-size: 0.7rem; color: #10b981; text-align: center; margin-top: 5px; display: none; font-weight: bold;">Banner Saved!</div>
+    </div>
+
+    <div class="section-title">Consultant Tools</div>
+    <div class="drag-grid" style="padding-bottom: 0;">
+        <div class="drag-item" onclick="clickToDrop('Compass', 6, 6, 'null', '#e11d48')">🧭<span>Compass</span></div>
+        <div class="drag-item" onclick="clickToDrop('Sticky', 8, 4, '#fef08a', '#ca8a04')">📝<span>Sticky Note</span></div>
+    </div>
+    
+    <div class="section-title">Rooms (Click to Add Tab)</div>
+    <div class="drag-grid" style="overflow-y: auto; flex-grow: 1;">
+        <div class="drag-item" onclick="createTab('Bedroom')">🛏️<span>Bedroom</span></div>
+        <div class="drag-item" onclick="createTab('Kitchen')">🍳<span>Kitchen</span></div>
+        <div class="drag-item" onclick="createTab('Living')">🛋️<span>Living Room</span></div>
+        <div class="drag-item" onclick="createTab('Pooja')">🕉️<span>Pooja</span></div>
+        <div class="drag-item" onclick="createTab('Bath')">🚿<span>Bathroom</span></div>
+        <div class="drag-item" onclick="createTab('Balcony')">🌿<span>Balcony</span></div>
+    </div>
+    
+    <div class="tools-section">
+        <button class="btn-action btn-primary" onclick="saveLayoutToSheets()" style="font-size:0.85rem;">💾 Save to Cloud</button>
+        <button class="btn-action btn-outline" onclick="clearCanvas()">🗑️ Clear Canvas</button>
+    </div>
+    <button class="btn-action btn-export" onclick="exportPDF()">Export Final PDF</button>
+</div>
+
+<!-- CENTER PANEL -->
+<div id="center-panel">
+    <div id="tab-bar">
+        <div id="tab-empty-hint">← Click a room to create its tab</div>
+    </div>
+    <div id="canvas-wrapper">
+        <button id="floating-delete" onclick="deleteActiveItem()" title="Delete">✕</button>
+        <button id="floating-rotate" onclick="rotateActiveItem()" title="Rotate 90°">↻</button>
+    </div>
+    <div id="writing-pad-container">
+        <h3 style="margin:0; font-size: 13px; color: #1e293b; margin-bottom: 4px;">Consultant Remarks & Recommendations</h3>
+        <textarea id="global-remarks" placeholder="Type detailed remarks here..."></textarea>
+    </div>
+</div>
+
+<!-- RIGHT PALETTE (Properties) -->
+<div id="secondary-palette">
+    <div class="header" id="ctx-title">Properties</div>
+    <div id="empty-state" style="padding: 20px; text-align: center; color: #64748b; font-size: 0.9rem;">
+        Select an item on the canvas to configure it.
+    </div>
+    <div id="properties-content" style="display: none;">
+        <div class="property-group" id="dimension-editor">
+            <label style="font-size: 0.8rem; font-weight: 600; color: #1e293b;" id="dim-label">Dimensions & Layout</label>
+            <div class="property-row" id="dim-inputs">
+                <div><label style="font-size: 0.8rem; color: #64748b;">W</label> <input type="number" id="edit-w" step="0.5"></div>
+                <div><label style="font-size: 0.8rem; color: #64748b;">H</label> <input type="number" id="edit-h" step="0.5"></div>
+            </div>
+            <button class="btn-action btn-outline" onclick="rotateActiveItem()" style="width: 100%; margin-top: 15px; font-size: 0.8rem;" id="btn-rotate">↻ Rotate 90°</button>
+        </div>
+        <div class="property-group" id="compass-rotation-section" style="display: none;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: #1e293b;">Rotation (Degrees)</label>
+            <div class="property-row">
+                <input type="range" id="compass-angle" min="0" max="360" value="0" style="width:100%" oninput="updateCompassAngle()">
+            </div>
+            <div style="text-align: center; font-size: 12px; margin-top: 5px; font-weight: bold;" id="angle-val">0°</div>
+        </div>
+        <div class="property-group" id="text-edit-section" style="display: none;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: #1e293b;" id="text-edit-label">Room Note</label>
+            <div class="property-row">
+                <input type="text" id="edit-text-note" class="full-width-input" placeholder="Type text here..." oninput="updateActiveText()">
+            </div>
+        </div>
+        <div class="section-title" id="furn-title" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Add Furniture</span>
+            <span style="font-size:0.7rem;font-weight:400;color:#94a3b8;">Tap to place</span>
+        </div>
+        <div class="drag-grid" id="furniture-items" style="max-height: 40vh; overflow-y: auto;"></div>
+    </div>
+</div>
+
+</div><!-- /#app-shell -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     COMMENTS PANEL
+══════════════════════════════════════════════════════════════ -->
+<div id="comments-panel">
+    <div class="comments-header">
+        <h3>💬 Comments & Feedback</h3>
+        <button id="btn-close-comments" onclick="toggleComments()">✕</button>
+    </div>
+    <div id="comments-list">
+        <div id="comments-empty">No comments yet.<br>Be the first to leave a note!</div>
+    </div>
+
+    <!-- Client: Add new comment -->
+    <div id="add-comment-form">
+        <h4>Leave a Comment</h4>
+        <select id="comment-room-select">
+            <option value="General">General</option>
+        </select>
+        <textarea id="new-comment-text" placeholder="Describe what you'd like changed or ask a question..."></textarea>
+        <button id="btn-submit-comment" onclick="submitComment()">Send Comment →</button>
+    </div>
+</div>
+
+<!-- Comments Toggle FAB -->
+<button id="btn-toggle-comments" onclick="toggleComments()" title="Comments" style="display:none; position:fixed; bottom:24px; right:24px; z-index:700;">
+    💬
+    <span class="comments-badge" id="comments-badge" style="display:none;">0</span>
+</button>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════════════ -->
+<script>
+// ════════════════════════════════════════════════════════════════
+// MODULE 1: CONFIGURATION
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * SETUP REQUIRED:
+ * Replace this URL with your deployed Google Apps Script Web App URL.
+ * See SETUP.md for instructions.
+ */
+const API_URL = 'https://script.google.com/macros/s/AKfycbyH9JOsIYtA5ErZ0ut5Q4qSIu5vOTX-QeEz-nJDWBSpQvtkBDF-Cxm4bAGlu5c3W8uo/exec';
+
+// ════════════════════════════════════════════════════════════════
+// MODULE 2: AUTH  (email + password, SHA-256 hashed)
+// ════════════════════════════════════════════════════════════════
+
+let currentUser     = null;  // { email, name, role, client_id }
+
+function switchAuthTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach((el, i) => {
+        el.classList.toggle('active', (tab === 'login' ? i === 0 : i === 1));
+    });
+    document.getElementById('auth-panel-login').classList.toggle('active', tab === 'login');
+    document.getElementById('auth-panel-register').classList.toggle('active', tab === 'register');
+    document.getElementById('auth-error').classList.remove('visible');
+}
+
+/** SHA-256 via Web Crypto API — plaintext password never leaves the browser */
+async function sha256(message) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(message));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function handleLogin() {
+    const email    = document.getElementById('login-email').value.trim().toLowerCase();
+    const password = document.getElementById('login-password').value;
+    const errEl    = document.getElementById('auth-error');
+    const btn      = document.getElementById('btn-login');
+
+    errEl.classList.remove('visible');
+    if (!email || !password) {
+        errEl.textContent = 'Please enter your email and password.';
+        errEl.classList.add('visible');
+        return;
+    }
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+        const hash   = await sha256(password);
+        const result = await apiCall('login', { email, password_hash: hash });
+        if (result.success) {
+            currentUser = result.user;
+            sessionStorage.setItem('vastu_user', JSON.stringify(currentUser));
+            startApp();
+        } else {
+            errEl.textContent = result.error || 'Invalid email or password.';
+            errEl.classList.add('visible');
+        }
+    } catch (err) {
+        errEl.textContent = 'Connection failed. Please try again.';
+        errEl.classList.add('visible');
+    }
+    btn.disabled = false; btn.textContent = 'Sign In →';
+}
+
+async function handleRegister() {
+    const name     = document.getElementById('reg-name').value.trim();
+    const email    = document.getElementById('reg-email').value.trim().toLowerCase();
+    const password = document.getElementById('reg-password').value;
+    const errEl    = document.getElementById('auth-error');
+    const btn      = document.getElementById('btn-register');
+
+    errEl.classList.remove('visible');
+    if (!name || !email || !password) {
+        errEl.textContent = 'All fields are required.';
+        errEl.classList.add('visible');
+        return;
+    }
+    if (password.length < 6) {
+        errEl.textContent = 'Password must be at least 6 characters.';
+        errEl.classList.add('visible');
+        return;
+    }
+    btn.disabled = true; btn.textContent = 'Creating account…';
+    try {
+        const hash   = await sha256(password);
+        const result = await apiCall('register', { name, email, password_hash: hash });
+        if (result.success) {
+            currentUser = result.user;
+            sessionStorage.setItem('vastu_user', JSON.stringify(currentUser));
+            startApp();
+        } else {
+            errEl.textContent = result.error || 'Registration failed.';
+            errEl.classList.add('visible');
+        }
+    } catch (err) {
+        errEl.textContent = 'Connection failed. Please try again.';
+        errEl.classList.add('visible');
+    }
+    btn.disabled = false; btn.textContent = 'Create Account →';
+}
+
+function handleLogout() {
+    if (!confirm('Are you sure you want to sign out?')) return;
+    sessionStorage.removeItem('vastu_user');
+    currentUser = null;
+    Object.keys(tabs).forEach(id => { try { tabs[id].stage.destroy(); } catch(e){} });
+    Object.keys(tabs).forEach(k => delete tabs[k]);
+    activeTabId = null;
+    document.getElementById('tab-bar').innerHTML = '<div id="tab-empty-hint">← Click a room to create its tab</div>';
+    document.getElementById('canvas-wrapper').querySelectorAll('.tab-canvas').forEach(el => el.remove());
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    document.getElementById('login-password').value = '';
+    document.getElementById('auth-error').classList.remove('visible');
+    switchAuthTab('login');
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+});
+
+// ════════════════════════════════════════════════════════════════
+// MODULE 3: API CLIENT
+// ════════════════════════════════════════════════════════════════
+
+function showLoader() { document.getElementById('api-loading').classList.add('visible'); }
+function hideLoader() { document.getElementById('api-loading').classList.remove('visible'); }
+
+/**
+ * Unified API call to Google Apps Script Web App.
+ * Everything goes through GET with query params — Apps Script does not
+ * support Content-Type: application/json POST from a browser fetch (returns 501).
+ * For large payloads (save_layout) we use a no-cors POST via a hidden form trick.
+ */
+async function apiCall(action, params = {}, method = 'GET') {
+    showLoader();
+    try {
+        // Always use GET with query string — works for all actions including
+        // register, add_comment, save_layout (Apps Script POST via fetch = 501)
+        const qs  = new URLSearchParams({ action, ...params }).toString();
+        const url = `${API_URL}?${qs}`;
+        const response = await fetch(url, { method: 'GET' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+    } finally {
+        hideLoader();
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODULE 4: APP STARTUP & ROLE-BASED UI
+// ════════════════════════════════════════════════════════════════
+
+async function startApp() {
+    document.getElementById('auth-overlay').classList.add('hidden');
+
+    const u = currentUser;
+    document.getElementById('topbar-user').textContent = u.name;
+    document.getElementById('role-badge').textContent = u.role;
+    document.getElementById('role-badge').className = 'role-badge ' + u.role;
+
+    document.getElementById('btn-toggle-comments').style.display = 'flex';
+
+    if (u.role === 'consultant') {
+        document.body.className = 'consultant-mode';
+        await loadClientSelector();
+    } else {
+        document.body.className = 'client-mode';
+
+        // Show a helpful welcome banner in the center for clients
+        const wrapper = document.getElementById('canvas-wrapper');
+        if (!document.getElementById('client-welcome')) {
+            const banner = document.createElement('div');
+            banner.id = 'client-welcome';
+            banner.innerHTML = `
+                <div style="
+                    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                    text-align:center; color:#64748b; pointer-events:none; user-select:none;
+                ">
+                    <div style="font-size:3rem; margin-bottom:16px;">🏠</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px;">
+                        Welcome, ${u.name}!
+                    </div>
+                    <div style="font-size:0.875rem; line-height:1.6;">
+                        Your Vastu layout will appear here once your consultant adds it.<br>
+                        Use the <strong>💬 Comments</strong> button below to send messages.
+                    </div>
+                </div>`;
+            wrapper.appendChild(banner);
+        }
+
+        // Auto-open comments panel so client knows what to do
+        const panel = document.getElementById('comments-panel');
+        if (panel && !panel.classList.contains('open')) {
+            panel.classList.add('open');
+        }
+
+        await loadLayoutFromSheets(u.client_id);
+        await loadComments(u.client_id);
+    }
+}
+
+async function loadClientSelector() {
+    const selectorWrap = document.getElementById('client-selector-wrap');
+    selectorWrap.style.display = 'flex';
+
+    try {
+        const result = await apiCall('get_clients', {});
+        const sel = document.getElementById('client-selector');
+        sel.innerHTML = '<option value="">— Select Client —</option>';
+        if (result.clients && result.clients.length > 0) {
+            result.clients.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.client_id;
+                opt.textContent = `${c.name} (${c.client_id})`;
+                sel.appendChild(opt);
+            });
+        }
+    } catch(e) {
+        showToast('Could not load client list.', 'error');
+    }
+}
+
+async function onClientChange() {
+    const clientId = document.getElementById('client-selector').value;
+    if (!clientId) return;
+
+    // Clear current canvas
+    Object.keys(tabs).forEach(id => {
+        try { tabs[id].stage.destroy(); } catch(e) {}
+        document.getElementById('canvas_' + id)?.remove();
+        document.querySelector(`.room-tab[data-id="${id}"]`)?.remove();
+        delete tabs[id];
+    });
+    activeTabId = null;
+    document.getElementById('global-remarks').value = '';
+    const bar = document.getElementById('tab-bar');
+    if (!document.getElementById('tab-empty-hint')) {
+        bar.innerHTML = '<div id="tab-empty-hint">← Click a room to create its tab</div>';
+    }
+
+    await loadLayoutFromSheets(clientId);
+    await loadComments(clientId);
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODULE 5: LAYOUT PERSISTENCE
+// ════════════════════════════════════════════════════════════════
+
+let autoSaveTimer = null;
+
+function scheduleAutoSave() {
+    if (currentUser?.role !== 'consultant') return;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(saveLayoutToSheets, 5000);
+}
+
+async function saveLayoutToSheets(silent = false) {
+    const clientId = currentUser?.role === 'consultant'
+        ? document.getElementById('client-selector').value
+        : currentUser?.client_id;
+
+    if (!clientId) {
+        if (!silent) showToast('Please select a client first.', 'error');
+        return;
+    }
+
+    const layoutData = serializeLayout();
+    layoutData.remarks = document.getElementById('global-remarks').value;
+
+    try {
+        const result = await apiCall('save_layout', { client_id: clientId, layout_json: JSON.stringify(layoutData) }, 'POST');
+        if (result.success) {
+            if (!silent) showToast('Layout saved to cloud ✓', 'success');
+        } else {
+            if (!silent) showToast('Save failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (e) {
+        if (!silent) showToast('Save failed. Check connection.', 'error');
+        console.error(e);
+    }
+}
+
+async function loadLayoutFromSheets(clientId) {
+    if (!clientId) return;
+    try {
+        const result = await apiCall('get_layout', { client_id: clientId });
+        if (result.success && result.layout_json) {
+            const layout = JSON.parse(result.layout_json);
+            deserializeLayout(layout);
+            if (layout.remarks) document.getElementById('global-remarks').value = layout.remarks;
+            showToast('Layout loaded ✓', 'success');
+        }
+    } catch(e) {
+        console.error('Load layout error:', e);
+    }
+}
+
+/**
+ * Serialize all open tabs and their canvas items into JSON
+ */
+function serializeLayout() {
+    const data = { tabs: [] };
+    Object.values(tabs).forEach(tab => {
+        const tabData = {
+            id: tab.id,
+            typeName: tab.typeName,
+            tabLabel: tab.tabLabel,
+            items: []
+        };
+        tab.layer.find('.room,.compass,.sticky').forEach(node => {
+            const item = {
+                name: node.name(),
+                x: node.x(), y: node.y(),
+                rotation: node.rotation(),
+                scaleX: node.scaleX(), scaleY: node.scaleY(),
+                itemType: node.getAttr('itemType') || null,
+            };
+            const bgRect = node.findOne('.bg-rect');
+            if (bgRect) { item.width = bgRect.width(); item.height = bgRect.height(); }
+            if (node.name() === 'room') {
+                item.commentText = node.findOne('.comment-text')?.text() || '';
+                item.fill = node.findOne('.bg-rect')?.fill() || '';
+                item.stroke = node.findOne('.bg-rect')?.stroke() || '';
+                // Serialize children furniture
+                item.furniture = [];
+                node.find('.furniture').forEach(f => {
+                    item.furniture.push({
+                        x: f.x(), y: f.y(), rotation: f.rotation(),
+                        scaleX: f.scaleX(), scaleY: f.scaleY(),
+                        itemType: f.getAttr('itemType'),
+                        fW: f.findOne('.bg-rect')?.width(),
+                        fH: f.findOne('.bg-rect')?.height(),
+                    });
+                });
+            }
+            if (node.name() === 'sticky') {
+                item.text = node.findOne('.text-node')?.text() || '';
+                item.fill = node.findOne('.bg-rect')?.fill() || '#fef08a';
+            }
+            if (node.name() === 'compass') {
+                item.compassAngle = node.rotation();
+            }
+            tabData.items.push(item);
+        });
+        data.tabs.push(tabData);
+    });
+    return data;
+}
+
+/**
+ * Deserialize JSON layout back into Konva canvas
+ */
+function deserializeLayout(data) {
+    if (!data || !data.tabs) return;
+    data.tabs.forEach(tabData => {
+        // Create tab (this calls createTab which also builds the room)
+        // We need to create an empty tab and then populate it
+        createTabFromData(tabData);
+    });
+}
+
+function createTabFromData(tabData) {
+    const typeName = tabData.typeName;
+    const def = ROOM_DEFS[typeName];
+    if (!def) return;
+
+    const id = 'tab_' + (++tabCounter);
+    const tabLabel = tabData.tabLabel || typeName;
+
+    const hint = document.getElementById('tab-empty-hint');
+    if (hint) hint.remove();
+
+    const tabEl = document.createElement('div');
+    tabEl.className = 'room-tab';
+    tabEl.dataset.id = id;
+    tabEl.innerHTML = `${def.emoji} ${tabLabel} <button class="tab-close" onclick="closeTab('${id}',event)">×</button>`;
+    tabEl.onclick = (e) => { if (!e.target.classList.contains('tab-close')) switchTab(id); };
+    document.getElementById('tab-bar').appendChild(tabEl);
+
+    const canvasDiv = document.createElement('div');
+    canvasDiv.className = 'tab-canvas';
+    canvasDiv.id = 'canvas_' + id;
+    document.getElementById('canvas-wrapper').appendChild(canvasDiv);
+
+    const wrapper = document.getElementById('canvas-wrapper');
+    const stg = new Konva.Stage({ container: 'canvas_' + id, width: wrapper.offsetWidth, height: wrapper.offsetHeight });
+    const lyr = new Konva.Layer();
+    stg.add(lyr);
+
+    const tf = new Konva.Transformer({
+        rotateEnabled: false, keepRatio: false,
+        borderStroke: '#0ea5e9', borderStrokeWidth: 4,
+        anchorStroke: '#0ea5e9', anchorFill: '#ffffff', anchorStrokeWidth: 2,
+        enabledAnchors: ['top-left','top-center','top-right','middle-right','bottom-right','bottom-center','bottom-left','middle-left'],
+        boundBoxFunc: (oldBox, newBox) => (newBox.width < SCALE || newBox.height < SCALE) ? oldBox : newBox,
+        anchorStyleFunc: (anchor) => {
+            const isCorner = anchor.hasName('top-left')||anchor.hasName('top-right')||anchor.hasName('bottom-left')||anchor.hasName('bottom-right');
+            if (isCorner) { anchor.cornerRadius(12); anchor.width(24); anchor.height(24); anchor.offsetX(12); anchor.offsetY(12); }
+            else { anchor.cornerRadius(4); const isH=anchor.hasName('top-center')||anchor.hasName('bottom-center'); if(isH){anchor.width(80);anchor.height(14);anchor.offsetX(40);anchor.offsetY(7);}else{anchor.width(14);anchor.height(80);anchor.offsetX(7);anchor.offsetY(40);} }
+        }
+    });
+    lyr.add(tf);
+
+    tabs[id] = { id, typeName, tabLabel, stage: stg, layer: lyr, transformer: tf, activeItem: null, compassNode: null };
+    registerStageEvents(id);
+    switchTab(id);
+
+    // Now populate from saved data
+    tabData.items.forEach(item => {
+        if (item.name === 'room') {
+            buildRoomWithLayout(id, typeName, item.x, item.y, item.width / SCALE, item.height / SCALE, item.fill, item.stroke);
+            // Set comment text
+            const rooms = lyr.find('.room');
+            if (rooms.length > 0) {
+                const roomNode = rooms[rooms.length - 1];
+                roomNode.findOne('.comment-text')?.text(item.commentText || '');
+                // TODO: Restore furniture from item.furniture if needed
+            }
+        }
+        // Compass and sticky restoration can be added similarly
+    });
+    lyr.draw();
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODULE 6: COMMENTS
+// ════════════════════════════════════════════════════════════════
+
+let commentsData = [];
+let currentClientIdForComments = null;
+
+async function loadComments(clientId) {
+    currentClientIdForComments = clientId;
+    updateCommentRoomSelect();
+    try {
+        const result = await apiCall('get_comments', { client_id: clientId });
+        if (result.success) {
+            commentsData = result.comments || [];
+            renderComments();
+        }
+    } catch(e) {
+        console.error('Load comments error:', e);
+    }
+}
+
+function updateCommentRoomSelect() {
+    const sel = document.getElementById('comment-room-select');
+    sel.innerHTML = '<option value="General">General</option>';
+    Object.values(tabs).forEach(tab => {
+        const opt = document.createElement('option');
+        opt.value = tab.tabLabel;
+        opt.textContent = tab.tabLabel;
+        sel.appendChild(opt);
+    });
+}
+
+function renderComments() {
+    const list = document.getElementById('comments-list');
+    const empty = document.getElementById('comments-empty');
+
+    // Separate top-level comments and replies
+    const topLevel = commentsData.filter(c => !c.parent_id);
+    const replies = commentsData.filter(c => c.parent_id);
+
+    if (topLevel.length === 0) {
+        list.innerHTML = '';
+        list.appendChild(empty);
+        updateCommentsBadge(0);
+        return;
+    }
+
+    empty.remove();
+    list.innerHTML = '';
+
+    topLevel.forEach(comment => {
+        const div = document.createElement('div');
+        div.className = `comment-item by-${comment.role}`;
+        div.dataset.id = comment.id;
+
+        const timeStr = new Date(comment.timestamp).toLocaleDateString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+
+        div.innerHTML = `
+            <div class="comment-meta">
+                <span class="comment-author">${escHtml(comment.author)}</span>
+                <span class="comment-room">${escHtml(comment.room_tab)}</span>
+            </div>
+            <div class="comment-text">${escHtml(comment.message)}</div>
+            <div class="comment-time">${timeStr}</div>
+            ${currentUser?.role === 'consultant' ? `<button class="btn-reply" onclick="toggleReplyForm('${comment.id}')">↩ Reply</button>` : ''}
+            <div class="reply-form" id="reply-form-${comment.id}">
+                <textarea placeholder="Type your response..." id="reply-text-${comment.id}"></textarea>
+                <button onclick="submitReply('${comment.id}')">Send Reply</button>
+            </div>
+        `;
+        list.appendChild(div);
+
+        // Render replies for this comment
+        replies.filter(r => r.parent_id === comment.id).forEach(reply => {
+            const rDiv = document.createElement('div');
+            rDiv.className = 'comment-item reply by-consultant';
+            const rTime = new Date(reply.timestamp).toLocaleDateString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+            rDiv.innerHTML = `
+                <div class="comment-meta">
+                    <span class="comment-author">↩ ${escHtml(reply.author)}</span>
+                    <span class="comment-time">${rTime}</span>
+                </div>
+                <div class="comment-text">${escHtml(reply.message)}</div>
+            `;
+            list.appendChild(rDiv);
+        });
+    });
+
+    updateCommentsBadge(topLevel.length);
+}
+
+function updateCommentsBadge(count) {
+    const badge = document.getElementById('comments-badge');
+    if (count > 0) { badge.textContent = count; badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+}
+
+function toggleReplyForm(commentId) {
+    const form = document.getElementById('reply-form-' + commentId);
+    form.style.display = form.style.display === 'block' ? 'none' : 'block';
+}
+
+async function submitReply(parentId) {
+    const textEl = document.getElementById('reply-text-' + parentId);
+    const text = textEl.value.trim();
+    if (!text) return;
+
+    try {
+        const result = await apiCall('add_comment', {
+            client_id: currentClientIdForComments,
+            room_tab: 'General',
+            author: currentUser.name,
+            role: currentUser.role,
+            message: text,
+            parent_id: parentId
+        }, 'POST');
+
+        if (result.success) {
+            textEl.value = '';
+            showToast('Reply sent ✓', 'success');
+            await loadComments(currentClientIdForComments);
+        } else {
+            showToast('Failed to send reply', 'error');
+        }
+    } catch(e) {
+        showToast('Error sending reply', 'error');
+    }
+}
+
+async function submitComment() {
+    const text = document.getElementById('new-comment-text').value.trim();
+    const room = document.getElementById('comment-room-select').value;
+    const btn = document.getElementById('btn-submit-comment');
+
+    if (!text) { showToast('Please type a comment first.', 'error'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+        const result = await apiCall('add_comment', {
+            client_id: currentUser.client_id,
+            room_tab: room,
+            author: currentUser.name,
+            role: currentUser.role,
+            message: text,
+            parent_id: ''
+        }, 'POST');
+
+        if (result.success) {
+            document.getElementById('new-comment-text').value = '';
+            showToast('Comment sent ✓', 'success');
+            await loadComments(currentUser.client_id);
+        } else {
+            showToast('Failed to send comment', 'error');
+        }
+    } catch(e) {
+        showToast('Error sending comment', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Send Comment →';
+}
+
+function toggleComments() {
+    const panel = document.getElementById('comments-panel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open') && currentClientIdForComments) {
+        loadComments(currentClientIdForComments);
+    }
+}
+
+function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODULE 7: TOAST
+// ════════════════════════════════════════════════════════════════
+
+let toastTimer;
+function showToast(msg, type = 'info') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.className = '', 3500);
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODULE 8: CHECK SESSION ON LOAD
+// ════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+    const saved = sessionStorage.getItem('vastu_user');
+    if (saved) {
+        try {
+            currentUser = JSON.parse(saved);
+            startApp();
+        } catch(e) {
+            sessionStorage.removeItem('vastu_user');
+        }
+    }
+});
+
+</script>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// ORIGINAL CANVAS ENGINE (Preserved from VastuDraw Pro 10.0)
+// ════════════════════════════════════════════════════════════════
+
+    function getFurnitureSVG(type, fill, border, angle = 0) {
+        const cFill   = fill || '#cbd5e1';
+        const cBorder = border || '#475569';
+        let inner = '';
+        switch(type) {
+            case 'Bed': inner=`<rect width="100" height="100" fill="${cBorder}" rx="4"/><rect x="2" y="2" width="96" height="96" fill="${cFill}" rx="3"/><rect x="8" y="8" width="38" height="22" fill="#ffffff" rx="4"/><rect x="54" y="8" width="38" height="22" fill="#ffffff" rx="4"/><rect x="0" y="38" width="100" height="62" fill="#0ea5e9" opacity="0.15" rx="2"/><path d="M0,45 Q50,55 100,45" stroke="${cBorder}" stroke-width="1.5" fill="none" opacity="0.4"/>`; break;
+            case 'Sofa': inner=`<rect width="100" height="100" fill="${cBorder}" rx="8"/><rect x="5" y="5" width="90" height="90" fill="${cFill}" rx="6"/><rect x="0" y="0" width="20" height="100" fill="${cBorder}" opacity="0.25" rx="4"/><rect x="80" y="0" width="20" height="100" fill="${cBorder}" opacity="0.25" rx="4"/><rect x="20" y="5" width="60" height="30" fill="${cBorder}" opacity="0.2" rx="4"/>`; break;
+            case 'Wardrobe': inner=`<rect width="100" height="100" fill="${cFill}" stroke="${cBorder}" stroke-width="3"/><line x1="50" y1="0" x2="50" y2="100" stroke="${cBorder}" stroke-width="2"/><rect x="42" y="40" width="4" height="20" fill="${cBorder}" rx="2"/><rect x="54" y="40" width="4" height="20" fill="${cBorder}" rx="2"/>`; break;
+            case 'Dining Table': case 'Table': case 'Center Table': case 'Side Table': inner=`<rect width="100" height="100" fill="${cBorder}" rx="10"/><rect x="4" y="4" width="92" height="92" fill="${cFill}" rx="8"/><circle cx="20" cy="20" r="8" fill="#ffffff" opacity="0.5"/><circle cx="80" cy="80" r="8" fill="#ffffff" opacity="0.5"/><circle cx="20" cy="80" r="8" fill="#ffffff" opacity="0.5"/><circle cx="80" cy="20" r="8" fill="#ffffff" opacity="0.5"/>`; break;
+            case 'TV Unit': inner=`<rect width="100" height="100" fill="${cFill}" stroke="${cBorder}" stroke-width="2"/><rect x="10" y="30" width="80" height="40" fill="#0f172a" rx="2"/>`; break;
+            case 'Chair': inner=`<rect x="10" y="10" width="80" height="80" fill="${cFill}" rx="15" stroke="${cBorder}" stroke-width="3"/><rect x="10" y="10" width="80" height="20" fill="${cBorder}" opacity="0.3" rx="5"/>`; break;
+            case 'Stove': inner=`<rect width="100" height="100" fill="#334155" rx="4"/><circle cx="30" cy="30" r="15" fill="#ef4444"/><circle cx="70" cy="30" r="15" fill="#ef4444"/><circle cx="30" cy="70" r="12" fill="#ef4444"/><circle cx="70" cy="70" r="12" fill="#ef4444"/>`; break;
+            case 'Sink': case 'Wash Basin': inner=`<rect width="100" height="100" fill="#e2e8f0" rx="4"/><rect x="10" y="10" width="80" height="80" fill="#cbd5e1" rx="10" stroke="#94a3b8" stroke-width="2"/><circle cx="50" cy="50" r="6" fill="#475569"/><rect x="45" y="0" width="10" height="15" fill="#94a3b8" rx="2"/>`; break;
+            case 'Fridge': inner=`<rect width="100" height="100" fill="#f8fafc" stroke="#94a3b8" stroke-width="4" rx="5"/><line x1="0" y1="30" x2="100" y2="30" stroke="#94a3b8" stroke-width="3"/><rect x="10" y="5" width="5" height="20" fill="#94a3b8" rx="2"/><rect x="10" y="40" width="5" height="40" fill="#94a3b8" rx="2"/>`; break;
+            case 'Commode': inner=`<rect x="20" y="0" width="60" height="30" fill="#e2e8f0" rx="4" stroke="#cbd5e1" stroke-width="2"/><ellipse cx="50" cy="60" rx="30" ry="35" fill="#ffffff" stroke="#cbd5e1" stroke-width="4"/>`; break;
+            case 'Plant': inner=`<circle cx="50" cy="50" r="45" fill="#166534"/><circle cx="50" cy="50" r="35" fill="#22c55e"/><circle cx="50" cy="50" r="20" fill="#15803d"/>`; break;
+            case 'Mandir': inner=`<rect width="100" height="100" fill="#fde68a" stroke="#d97706" stroke-width="4" rx="4"/><rect x="10" y="10" width="80" height="80" fill="#fffbeb" rx="2"/><circle cx="50" cy="50" r="20" fill="#fbbf24"/><circle cx="50" cy="50" r="10" fill="#ef4444"/>`; break;
+            case 'Door': case 'Main Door': inner=`<rect x="0" y="0" width="10" height="100" fill="${cBorder}"/><path d="M10,100 A90,90 0 0,1 100,10" fill="#000000" opacity="0.08"/><line x1="10" y1="100" x2="100" y2="10" stroke="${cBorder}" stroke-width="2" stroke-dasharray="5,5"/>`; break;
+            case 'Shower Area': inner=`<rect width="100" height="100" fill="${cFill}" stroke="${cBorder}" stroke-width="2"/><circle cx="50" cy="50" r="8" fill="#94a3b8"/><line x1="10" y1="10" x2="90" y2="90" stroke="#0ea5e9" stroke-width="1" opacity="0.2"/><line x1="90" y1="10" x2="10" y2="90" stroke="#0ea5e9" stroke-width="1" opacity="0.2"/>`; break;
+            case 'Washing Machine': inner=`<rect width="100" height="100" fill="#e2e8f0" stroke="#94a3b8" stroke-width="3" rx="4"/><rect x="10" y="10" width="80" height="20" fill="#cbd5e1" rx="2"/><circle cx="50" cy="65" r="25" fill="#0f172a" opacity="0.8"/><circle cx="50" cy="65" r="20" fill="#bae6fd" opacity="0.5"/>`; break;
+            case 'Cylinder': inner=`<circle cx="50" cy="50" r="45" fill="${cFill}" stroke="${cBorder}" stroke-width="4"/><circle cx="50" cy="50" r="20" fill="${cBorder}" opacity="0.2"/>`; break;
+            case 'Mat': inner=`<rect width="100" height="100" fill="${cFill}" stroke="${cBorder}" stroke-width="3" rx="4"/><rect x="8" y="8" width="84" height="84" fill="none" stroke="${cBorder}" stroke-width="1.5" rx="2" stroke-dasharray="6,3"/>`; break;
+            default: inner=`<rect width="100" height="100" fill="${cFill}" stroke="${cBorder}" stroke-width="2" rx="4"/>`;
+        }
+        const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g transform="rotate(${angle}, 50, 50)">${inner}</g></svg>`;
+        return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
+    // ── Banner storage ────────────────────────────────────────────
+    let savedBanner = localStorage.getItem('vastu_banner');
+    if(savedBanner) { const bs = document.getElementById('banner-status'); if(bs) bs.style.display='block'; }
+    document.getElementById('banner-upload').addEventListener('change', function(e) {
+        const file = e.target.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            savedBanner = ev.target.result;
+            try { localStorage.setItem('vastu_banner', savedBanner); document.getElementById('banner-status').style.display = 'block'; }
+            catch(err) { alert("Image too large for local storage. Use a smaller file."); }
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // ── Panel management ──────────────────────────────────────────
+    function isMobile() { return window.innerWidth <= 768; }
+    function togglePanel(id) {
+        const el=document.getElementById(id), other=document.getElementById(id==='palette'?'secondary-palette':'palette'), bd=document.getElementById('panel-backdrop');
+        const was=el.classList.contains('open');
+        el.classList.remove('open'); other.classList.remove('open'); bd.classList.remove('active');
+        if(!was){el.classList.add('open');bd.classList.add('active');}
+    }
+    function closeAllPanels() {
+        ['palette','secondary-palette'].forEach(id=>document.getElementById(id).classList.remove('open'));
+        document.getElementById('panel-backdrop').classList.remove('active');
+    }
+
+    // ── Constants ─────────────────────────────────────────────────
+    const SCALE = 42; 
+
+    // ── Room definitions ──────────────────────────────────────────
+    const ROOM_DEFS = {
+        'Bedroom':  { w:12, h:14, fill:'#e0f2fe', stroke:'#0284c7', emoji:'🛏️' },
+        'Kitchen':  { w:10, h:8,  fill:'#ffedd5', stroke:'#ea580c', emoji:'🍳' },
+        'Living':   { w:16, h:12, fill:'#fef9c3', stroke:'#ca8a04', emoji:'🛋️' },
+        'Pooja':    { w:6,  h:6,  fill:'#fce7f3', stroke:'#db2777', emoji:'🕉️' },
+        'Bath':     { w:5,  h:8,  fill:'#f1f5f9', stroke:'#475569', emoji:'🚿' },
+        'Balcony':  { w:10, h:4,  fill:'#ecfdf5', stroke:'#059669', emoji:'🌿' }
+    };
+
+    const fData = {
+        'Bedroom':[{n:'Door',w:3,h:0.5,c:'#ffffff',border:'#334155'},{n:'Bed',w:6,h:6.5,c:'#bae6fd',border:'#475569'},{n:'Wardrobe',w:6,h:1.5,c:'#e2e8f0',border:'#475569'},{n:'Side Table',w:1.5,h:1.5,c:'#fef08a',border:'#475569'},{n:'Chair',w:2,h:2,c:'#fef08a',border:'#475569'},{n:'Table',w:4,h:2.5,c:'#ffedd5',border:'#475569'}],
+        'Kitchen':[{n:'Door',w:2,h:0.5,c:'#ffffff',border:'#334155'},{n:'Stove',w:3,h:2,c:'#fed7aa',border:'#475569'},{n:'Sink',w:3,h:2,c:'#e0f2fe',border:'#475569'},{n:'Fridge',w:2.5,h:2.5,c:'#cbd5e1',border:'#475569'},{n:'Cylinder',w:1.5,h:1.5,c:'#fca5a5',border:'#475569'}],
+        'Living':[{n:'Main Door',w:3.5,h:0.5,c:'#ffffff',border:'#334155'},{n:'Sofa',w:3,h:7,c:'#fef08a',border:'#475569'},{n:'TV Unit',w:1.5,h:5,c:'#cbd5e1',border:'#475569'},{n:'Dining Table',w:6,h:4,c:'#ffedd5',border:'#475569'},{n:'Center Table',w:2,h:3,c:'#f1f5f9',border:'#475569'},{n:'Chair',w:2,h:2,c:'#fef08a',border:'#475569'}],
+        'Bath':[{n:'Door',w:2,h:0.5,c:'#ffffff',border:'#334155'},{n:'Commode',w:2,h:1.5,c:'#e0f2fe',border:'#475569'},{n:'Wash Basin',w:1.5,h:2,c:'#f1f5f9',border:'#475569'},{n:'Shower Area',w:3,h:3,c:'#bae6fd',border:'#475569'},{n:'Washing Machine',w:2,h:2,c:'#cbd5e1',border:'#475569'}],
+        'Pooja':[{n:'Door',w:2.5,h:0.5,c:'#ffffff',border:'#334155'},{n:'Mandir',w:3,h:2,c:'#fde68a',border:'#475569'},{n:'Mat',w:2,h:2,c:'#fca5a5',border:'#475569'}],
+        'Balcony':[{n:'Door',w:2.5,h:0.5,c:'#ffffff',border:'#334155'},{n:'Plant',w:1.5,h:1.5,c:'#bbf7d0',border:'#475569'},{n:'Chair',w:2,h:2,c:'#fef08a',border:'#475569'}]
+    };
+
+    const DEFAULT_LAYOUTS = {
+        'Living':(rW,rH)=>[{n:'Main Door',x:rW-1.75,y:0,rotate:false},{n:'TV Unit',x:rW-1.5,y:rH/2-2.5,rotate:false},{n:'Sofa',x:0,y:rH/2-3.5,rotate:false},{n:'Sofa',x:0,y:0,rotate:true},{n:'Center Table',x:rW/3-1,y:rH/2-1.5,rotate:false}],
+        'Bedroom':(rW,rH)=>[{n:'Bed',x:0,y:0,rotate:false},{n:'Side Table',x:6.5,y:0,rotate:false},{n:'Wardrobe',x:0,y:rH-1.5,rotate:false},{n:'Door',x:rW,y:rH,rotate:true}],
+        'Kitchen':(rW,rH)=>[{n:'Sink',x:1,y:0,rotate:false},{n:'Cylinder',x:rW/2-0.75,y:0,rotate:false},{n:'Stove',x:rW/2+1,y:0,rotate:false},{n:'Door',x:rW,y:rH,rotate:true},{n:'Fridge',x:0,y:rH-2.5,rotate:false},{n:'Dining Table',x:rW/2-3,y:rH-4,rotate:false}],
+        'Bath':(rW,rH)=>[{n:'Wash Basin',x:0,y:0,rotate:false},{n:'Commode',x:0,y:2.5,rotate:false},{n:'Shower Area',x:0,y:rH-3,rotate:false},{n:'Door',x:rW,y:rH,rotate:true}],
+        'Pooja':(rW,rH)=>[{n:'Door',x:rW/2-1.25,y:0,rotate:false},{n:'Mandir',x:rW/2-1.5,y:1,rotate:false},{n:'Mat',x:rW/2-1,y:rH-2.5,rotate:false}],
+        'Balcony':(rW,rH)=>[{n:'Door',x:0,y:rH/2-0.25,rotate:true},{n:'Chair',x:rW-2.5,y:0.5,rotate:false},{n:'Plant',x:0.5,y:0.5,rotate:false}]
+    };
+
+    // ── Tab + Stage management ────────────────────────────────────
+    const tabs = {};
+    let activeTabId = null;
+    let tabCounter = 0;
+
+    function getTab() { return tabs[activeTabId]; }
+    function getStage() { return getTab()?.stage; }
+    function getLayer() { return getTab()?.layer; }
+    function getTf() { return getTab()?.transformer; }
+    function setActiveItem(node) { if(getTab()) getTab().activeItem = node; }
+    function getActiveItem() { return getTab()?.activeItem ?? null; }
+
+    function createTab(typeName) {
+        const id = 'tab_' + (++tabCounter);
+        const def = ROOM_DEFS[typeName];
+        const sameTypeCount = Object.values(tabs).filter(t => t.typeName === typeName).length;
+        const tabLabel = sameTypeCount === 0 ? typeName : `${typeName} ${sameTypeCount + 1}`;
+
+        const hint = document.getElementById('tab-empty-hint');
+        if(hint) hint.remove();
+
+        const tabEl = document.createElement('div');
+        tabEl.className = 'room-tab';
+        tabEl.dataset.id = id;
+        tabEl.innerHTML = `${def.emoji} ${tabLabel} <button class="tab-close" onclick="closeTab('${id}',event)">×</button>`;
+        tabEl.onclick = (e) => { if(!e.target.classList.contains('tab-close')) switchTab(id); };
+        document.getElementById('tab-bar').appendChild(tabEl);
+
+        const canvasDiv = document.createElement('div');
+        canvasDiv.className = 'tab-canvas';
+        canvasDiv.id = 'canvas_' + id;
+        document.getElementById('canvas-wrapper').appendChild(canvasDiv);
+
+        const wrapper2 = document.getElementById('canvas-wrapper');
+        const stg = new Konva.Stage({ container: 'canvas_' + id, width: wrapper2.offsetWidth, height: wrapper2.offsetHeight });
+        const lyr = new Konva.Layer();
+        stg.add(lyr);
+        
+        const tf = new Konva.Transformer({
+            rotateEnabled: false, keepRatio: false,
+            borderStroke: '#0ea5e9', borderStrokeWidth: 4,
+            anchorStroke: '#0ea5e9', anchorFill: '#ffffff', anchorStrokeWidth: 2,
+            enabledAnchors: ['top-left','top-center','top-right','middle-right','bottom-right','bottom-center','bottom-left','middle-left'],
+            boundBoxFunc: (oldBox, newBox) => (newBox.width < SCALE || newBox.height < SCALE) ? oldBox : newBox,
+            anchorStyleFunc: (anchor) => {
+                const isCorner = anchor.hasName('top-left')||anchor.hasName('top-right')||anchor.hasName('bottom-left')||anchor.hasName('bottom-right');
+                if(isCorner){anchor.cornerRadius(12);anchor.width(24);anchor.height(24);anchor.offsetX(12);anchor.offsetY(12);}
+                else{anchor.cornerRadius(4);const isH=anchor.hasName('top-center')||anchor.hasName('bottom-center');if(isH){anchor.width(80);anchor.height(14);anchor.offsetX(40);anchor.offsetY(7);}else{anchor.width(14);anchor.height(80);anchor.offsetX(7);anchor.offsetY(40);}}
+            }
+        });
+        lyr.add(tf);
+
+        tabs[id] = { id, typeName, tabLabel, stage: stg, layer: lyr, transformer: tf, activeItem: null, compassNode: null };
+        registerStageEvents(id);
+        switchTab(id);
+
+        const margin = 30;
+        buildRoomWithLayout(id, typeName, margin, margin, def.w, def.h, def.fill, def.stroke);
+        
+        // Update comment room selector and schedule auto-save
+        updateCommentRoomSelect();
+        scheduleAutoSave();
+    }
+
+    function switchTab(id) {
+        if(activeTabId && tabs[activeTabId]) {
+            const cur = tabs[activeTabId];
+            cur.transformer.nodes([]);
+            cur.activeItem = null;
+            lyr_draw(activeTabId);
+        }
+        activeTabId = id;
+        document.querySelectorAll('.tab-canvas').forEach(el => el.classList.remove('active'));
+        document.getElementById('canvas_' + id).classList.add('active');
+        document.querySelectorAll('.room-tab').forEach(el => el.classList.remove('active'));
+        const tabEl = document.querySelector(`.room-tab[data-id="${id}"]`);
+        if(tabEl) tabEl.classList.add('active');
+        const wrapper = document.getElementById('canvas-wrapper');
+        tabs[id].stage.width(wrapper.offsetWidth);
+        tabs[id].stage.height(wrapper.offsetHeight);
+        tabs[id].layer.draw();
+        hideActionButtons();
+        deselectItem();
+    }
+
+    function closeTab(id, e) {
+        if(e) { e.stopPropagation(); }
+        const tab = tabs[id];
+        if(!tab) return;
+        tab.stage.destroy();
+        document.getElementById('canvas_' + id)?.remove();
+        document.querySelector(`.room-tab[data-id="${id}"]`)?.remove();
+        delete tabs[id];
+        const remaining = Object.keys(tabs);
+        if(remaining.length > 0) {
+            switchTab(remaining[remaining.length - 1]);
+        } else {
+            activeTabId = null;
+            hideActionButtons();
+            deselectItem();
+            const bar = document.getElementById('tab-bar');
+            const hint = document.createElement('div');
+            hint.id = 'tab-empty-hint';
+            hint.textContent = '← Click a room to create its tab';
+            bar.appendChild(hint);
+        }
+        updateCommentRoomSelect();
+        scheduleAutoSave();
+    }
+
+    function lyr_draw(id) { tabs[id]?.layer.draw(); }
+
+    function registerStageEvents(id) {
+        const stg = tabs[id].stage;
+        let pDownPos = null;
+
+        stg.on('mousedown touchstart', (e) => {
+            const pos = stg.getPointerPosition();
+            pDownPos = pos ? { x: pos.x, y: pos.y } : null;
+        });
+
+        stg.on('mouseup touchend', (e) => {
+            const pos = stg.getPointerPosition();
+            if(!pDownPos || !pos) { pDownPos = null; return; }
+            const dx = pos.x - pDownPos.x, dy = pos.y - pDownPos.y;
+            pDownPos = null;
+            if(Math.sqrt(dx*dx+dy*dy) > 8) return;
+            if(activeTabId !== id) return; 
+            if(e.target === stg) { deselectItem(); return; }
+            let node = e.target;
+            while(node && !['room','furniture','compass','sticky'].includes(node.name())) {
+                node = node.parent;
+                if(!node || node === stg) return;
+            }
+            if(node && ['room','furniture','compass','sticky'].includes(node.name())) selectItem(node);
+        });
+    }
+
+    function hideActionButtons() {
+        document.getElementById('floating-delete').style.display = 'none';
+        document.getElementById('floating-rotate').style.display = 'none';
+    }
+
+    function showActionButtons(node) {
+        const stage = getStage(); if(!stage) return;
+        const abs = node.getClientRect({ skipTransform: false });
+        const stageBox = stage.container().getBoundingClientRect();
+        const wrapper = document.getElementById('canvas-wrapper').getBoundingClientRect();
+        const offsetX = stageBox.left - wrapper.left;
+        const offsetY = stageBox.top - wrapper.top;
+
+        const delBtn = document.getElementById('floating-delete');
+        const rotBtn = document.getElementById('floating-rotate');
+
+        const btnTop = Math.max(0, offsetY + abs.y - 22);
+        const btnRight = offsetX + abs.x + abs.width - 18;
+        const btnLeft = offsetX + abs.x + abs.width - 60;
+
+        delBtn.style.left = btnRight + 'px';
+        delBtn.style.top  = btnTop  + 'px';
+        delBtn.style.display = 'flex';
+
+        if(node.name() !== 'compass') {
+            rotBtn.style.left = btnLeft + 'px';
+            rotBtn.style.top  = btnTop  + 'px';
+            rotBtn.style.display = 'flex';
+        } else {
+            rotBtn.style.display = 'none';
+        }
+    }
+
+    function selectItem(node) {
+        const tab = getTab(); if(!tab) return;
+        tab.activeItem = node;
+        tab.transformer.nodes([node]);
+        lyr_draw(activeTabId);
+        showActionButtons(node);
+        updatePropertiesPanel(node);
+        if(isMobile()) openConfigPanel();
+    }
+
+    function openConfigPanel() {
+        if (isMobile()) { document.getElementById('secondary-palette').classList.add('open'); document.getElementById('panel-backdrop').classList.add('active'); }
+    }
+
+    function deselectItem() {
+        const tab = getTab();
+        if(tab) { tab.transformer.nodes([]); tab.activeItem = null; lyr_draw(activeTabId); }
+        document.getElementById('properties-content').style.display = 'none';
+        document.getElementById('empty-state').style.display = 'block';
+        document.getElementById('ctx-title').textContent = 'Properties';
+        hideActionButtons();
+    }
+
+    function updatePropertiesPanel(node) {
+        document.getElementById('properties-content').style.display = 'block';
+        document.getElementById('empty-state').style.display = 'none';
+        const isCompass = node.name() === 'compass';
+        const isRoom = node.name() === 'room';
+        const isFurniture = node.name() === 'furniture';
+        const isSticky = node.name() === 'sticky';
+
+        document.getElementById('ctx-title').textContent = isCompass ? '🧭 Compass' : isRoom ? `🏠 ${node.getAttr('itemType')}` : isFurniture ? `🪑 ${node.getAttr('itemType')}` : '📝 Sticky Note';
+
+        const dimEditor = document.getElementById('dimension-editor');
+        const compassSection = document.getElementById('compass-rotation-section');
+        const textSection = document.getElementById('text-edit-section');
+        const furnTitle = document.getElementById('furn-title');
+        const furnItems = document.getElementById('furniture-items');
+
+        dimEditor.style.display = isCompass ? 'none' : 'block';
+        compassSection.style.display = isCompass ? 'block' : 'none';
+        textSection.style.display = (isRoom || isSticky) ? 'block' : 'none';
+        furnTitle.style.display = isRoom ? 'flex' : 'none';
+        furnItems.style.display = isRoom ? 'grid' : 'none';
+
+        if(!isCompass) {
+            const rect = node.findOne('.bg-rect');
+            if(rect) {
+                document.getElementById('edit-w').value = (rect.width()/SCALE).toFixed(1);
+                document.getElementById('edit-h').value = (rect.height()/SCALE).toFixed(1);
+            }
+        }
+        if(isCompass) {
+            const angle = Math.round(node.rotation());
+            document.getElementById('compass-angle').value = angle;
+            document.getElementById('angle-val').textContent = angle + '°';
+        }
+        if(isRoom || isSticky) {
+            const textNode = isRoom ? node.findOne('.comment-text') : node.findOne('.text-node');
+            document.getElementById('edit-text-label').textContent = isRoom ? 'Room Note' : 'Sticky Text';
+            document.getElementById('edit-text-note').value = textNode ? textNode.text() : '';
+        }
+        if(isRoom) {
+            const type = node.getAttr('itemType');
+            furnItems.innerHTML = '';
+            const items = fData[type] || [];
+            items.forEach(item => {
+                const d = document.createElement('div');
+                d.className = 'drag-item';
+                d.innerHTML = `<img src="${getFurnitureSVG(item.n, item.c, item.border)}" style="width:40px;height:40px;"><span>${item.n}</span>`;
+                d.onclick = () => addFurnitureToRoom(node, item);
+                furnItems.appendChild(d);
+            });
+        }
+
+        const editW = document.getElementById('edit-w');
+        const editH = document.getElementById('edit-h');
+        const newEditW = editW.cloneNode(true);
+        const newEditH = editH.cloneNode(true);
+        editW.replaceWith(newEditW);
+        editH.replaceWith(newEditH);
+        newEditW.addEventListener('change', () => applyDimensions(newEditW.value, null));
+        newEditH.addEventListener('change', () => applyDimensions(null, newEditH.value));
+    }
+
+    function updateVisuals(node) {
+        if(!node) return;
+        const type = node.getAttr('itemType');
+        const rect = node.findOne('.bg-rect');
+        if(!rect) return;
+        const nW = rect.width(), nH = rect.height();
+        const imgNode = node.findOne('Image');
+        if(imgNode) {
+            const angle = imgNode.getAttr('svgAngle') || 0;
+            const svgSrc = getFurnitureSVG(type, rect.fill(), rect.stroke(), angle);
+            const img = new window.Image();
+            img.onload = () => { imgNode.image(img); imgNode.width(nW); imgNode.height(nH); getLayer()?.draw(); };
+            img.src = svgSrc;
+        }
+        const tText = node.findOne('.type-text');
+        if(tText) tText.width(nW);
+        const dText = node.findOne('.dim-text');
+        if(dText) dText.width(nW);
+        const border = node.findOne('Rect[name="border-rect"]');
+        if(border) { border.width(nW); border.height(nH); }
+    }
+
+    // Build Room
+    function buildRoomWithLayout(tabId, typeName, startX, startY, wFeet, hFeet, fillColor, strokeColor) {
+        const tab = tabs[tabId]; if(!tab) return;
+        const rW = wFeet * SCALE, rH = hFeet * SCALE;
+        const group = new Konva.Group({ x: startX, y: startY, draggable: true, name: 'room' });
+        group.setAttr('itemType', typeName);
+
+        const tBg = new Konva.Rect({ width: rW, fill: '#1e293b', opacity: 0.05, cornerRadius: 4 });
+        const bgRect = new Konva.Rect({ name: 'bg-rect', width: rW, height: rH, fill: fillColor, stroke: strokeColor, strokeWidth: 3, cornerRadius: 4 });
+        const typeText = new Konva.Text({ name: 'type-text', text: typeName.toUpperCase(), width: rW, align: 'center', y: 8, fontSize: 14, fontStyle: 'bold', fill: strokeColor, fontFamily: 'Inter' });
+        const dimText = new Konva.Text({ name: 'dim-text', text: `${wFeet}'×${hFeet}'`, width: rW, align: 'center', y: 26, fontSize: 11, fill: strokeColor, opacity: 0.7, fontFamily: 'Inter' });
+        const commentText = new Konva.Text({ name: 'comment-text', text: '', width: rW, y: rH - 22, align: 'center', fontSize: 11, fontStyle: 'italic', fill: '#475569', fontFamily: 'Inter' });
+
+        group.add(tBg, bgRect, typeText, dimText, commentText);
+
+        const layout = DEFAULT_LAYOUTS[typeName];
+        if(layout) {
+            layout(wFeet, hFeet).forEach(p => {
+                const item = (fData[typeName]||[]).find(f => f.n === p.n);
+                if(item) {
+                    let fx = p.x * SCALE, fy = p.y * SCALE;
+                    if(p.rotate) { placeFurnitureInRoom(group, item, fx - item.h*SCALE, fy - item.w*SCALE, 90, SCALE); }
+                    else { placeFurnitureInRoom(group, item, fx, fy, 0, SCALE); }
+                }
+            });
+        }
+
+        group.on('dragend', () => { scheduleAutoSave(); showActionButtons(group); });
+        group.on('transform', () => updateVisuals(group));
+        group.on('transformend', () => { scheduleAutoSave(); });
+        tab.layer.add(group);
+        tab.layer.draw();
+    }
+
+    function placeFurnitureInRoom(roomGroup, item, fx, fy, rotate, fScale) {
+        const fw = item.w * fScale, fh = item.h * fScale;
+        const svgSrc = getFurnitureSVG(item.n, item.c, item.border, 0);
+        const furGroup = new Konva.Group({ x: fx, y: fy, draggable: true, name: 'furniture', rotation: rotate });
+        furGroup.setAttr('itemType', item.n);
+        const bgRect = new Konva.Rect({ name: 'bg-rect', width: fw, height: fh, fill: item.c || '#cbd5e1', stroke: item.border || '#475569', strokeWidth: 1, opacity: 0 });
+        const imgEl = new window.Image();
+        const konvaImg = new Konva.Image({ name: 'img-node', image: null, width: fw, height: fh, listening: false });
+        imgEl.onload = () => { konvaImg.image(imgEl); roomGroup.getLayer()?.draw(); };
+        imgEl.src = svgSrc;
+        furGroup.add(bgRect, konvaImg);
+        furGroup.on('dragend', () => scheduleAutoSave());
+        furGroup.on('transformend', () => scheduleAutoSave());
+        roomGroup.add(furGroup);
+    }
+
+    function addFurnitureToRoom(roomGroup, item) {
+        const rRect = roomGroup.findOne('.bg-rect');
+        const rW = rRect.width(), rH = rRect.height();
+        const def = ROOM_DEFS[roomGroup.getAttr('itemType')];
+        const fS = def ? rW / def.w : SCALE;
+        const fw = item.w * fS, fh = item.h * fS;
+        const fx = Math.max(0, Math.min(rW/2 - fw/2, rW - fw));
+        const fy = Math.max(0, Math.min(rH/2 - fh/2, rH - fh));
+        placeFurnitureInRoom(roomGroup, item, fx, fy, 0, fS);
+        getLayer()?.draw();
+    }
+
+    function updateActiveText() {
+        const node=getActiveItem(); if(!node) return;
+        const val=document.getElementById('edit-text-note').value;
+        if(node.name()==='room') node.findOne('.comment-text').text(val);
+        else if(node.name()==='sticky') node.findOne('.text-node').text(val);
+        getLayer()?.draw();
+        scheduleAutoSave();
+    }
+
+    function applyDimensions(wFeet, hFeet) {
+        const node=getActiveItem(); if(!node||node.name()==='compass') return;
+        const rect=node.findOne('.bg-rect');
+        const nW=wFeet?parseFloat(wFeet)*SCALE:rect.width();
+        const nH=hFeet?parseFloat(hFeet)*SCALE:rect.height();
+        rect.width(nW); rect.height(nH);
+        const tBg = node.findOne('Rect');
+        if(tBg && tBg.name() !== 'bg-rect') tBg.width(nW);
+        if(node.findOne('.type-text')) node.findOne('.type-text').width(nW);
+        if(node.findOne('.dim-text')) node.findOne('.dim-text').width(nW);
+        if(node.name()==='room'){node.findOne('.comment-text').width(nW);node.findOne('.comment-text').y(nH-22);}
+        if(node.name()==='sticky') node.findOne('.text-node').width(nW);
+        updateVisuals(node); getLayer()?.draw();
+        scheduleAutoSave();
+    }
+
+    function deleteActiveItem() {
+        const node=getActiveItem(),tab=getTab(); if(!node||!tab) return;
+        if(node===tab.compassNode) tab.compassNode=null;
+        node.destroy(); deselectItem(); getLayer()?.draw();
+        scheduleAutoSave();
+    }
+
+    function clearCanvas() {
+        const tab=getTab(); if(!tab) return;
+        tab.layer.destroyChildren(); tab.layer.add(tab.transformer);
+        tab.compassNode=null; tab.activeItem=null;
+        deselectItem(); tab.layer.draw();
+        document.getElementById('global-remarks').value='';
+        scheduleAutoSave();
+    }
+
+    function rotateActiveItem() {
+        const node=getActiveItem(); if(!node) return;
+        if(node.name()==='compass') return;
+        const rect=node.findOne('.bg-rect');
+        const w=rect.width(), h=rect.height();
+        rect.width(h); rect.height(w);
+        if(node.findOne('.type-text')) node.findOne('.type-text').width(h);
+        if(node.findOne('.dim-text')) node.findOne('.dim-text').width(h);
+        if(node.name()==='room'){node.findOne('.comment-text').width(h);node.findOne('.comment-text').y(w-22);}
+        if(node.name()==='sticky') node.findOne('.text-node').width(h);
+        updateVisuals(node);
+        const tf=getTf(); if(tf){tf.nodes([]);tf.nodes([node]);}
+        getLayer()?.draw();
+        showActionButtons(node);
+        scheduleAutoSave();
+    }
+
+    function updateCompassAngle() {
+        const node=getActiveItem(); if(!node||node.name()!=='compass') return;
+        const angle=parseInt(document.getElementById('compass-angle').value);
+        document.getElementById('angle-val').textContent=angle+'°';
+        node.rotation(angle);
+        getLayer()?.draw();
+    }
+
+    function clickToDrop(type, wFeet, hFeet, fillColor, strokeColor) {
+        const tab = getTab();
+        if(!tab) { alert("Please add a room tab first."); return; }
+        const stage = tab.stage;
+        const cx = stage.width()/2 - (wFeet*SCALE)/2;
+        const cy = stage.height()/2 - (hFeet*SCALE)/2;
+
+        if(type === 'Compass') {
+            if(tab.compassNode) { alert("Only one Compass per room tab."); return; }
+            const group = new Konva.Group({ x: cx, y: cy, draggable: true, name: 'compass', rotation: 0 });
+            group.setAttr('itemType','Compass');
+            const svgSrc = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="#1e293b" stroke="#e11d48" stroke-width="3"/><text x="50" y="18" fill="white" text-anchor="middle" font-size="14" font-weight="bold" font-family="Inter">N</text><text x="50" y="88" fill="#94a3b8" text-anchor="middle" font-size="12" font-family="Inter">S</text><text x="14" y="55" fill="#94a3b8" text-anchor="middle" font-size="12" font-family="Inter">W</text><text x="86" y="55" fill="#94a3b8" text-anchor="middle" font-size="12" font-family="Inter">E</text><polygon points="50,20 55,50 50,45 45,50" fill="#e11d48"/><polygon points="50,80 55,50 50,55 45,50" fill="#94a3b8"/></svg>`)))}`;
+            const img = new window.Image();
+            const kImg = new Konva.Image({ image: null, width: wFeet*SCALE, height: hFeet*SCALE, name: 'bg-rect' });
+            img.onload = () => { kImg.image(img); tab.layer.draw(); };
+            img.src = svgSrc;
+            group.add(kImg);
+            group.on('dragend', () => scheduleAutoSave());
+            tab.layer.add(group);
+            tab.compassNode = group;
+            tab.layer.draw();
+            selectItem(group);
+        } else if(type === 'Sticky') {
+            const group = new Konva.Group({ x: cx, y: cy, draggable: true, name: 'sticky' });
+            group.setAttr('itemType','Sticky');
+            const bgRect = new Konva.Rect({ name:'bg-rect', width: wFeet*SCALE, height: hFeet*SCALE, fill: fillColor||'#fef08a', stroke: strokeColor||'#ca8a04', strokeWidth: 2, cornerRadius: 4 });
+            const textNode = new Konva.Text({ name:'text-node', text:'Note...', width: wFeet*SCALE, padding: 8, fontSize: 12, fill: '#713f12', fontFamily:'Inter', listening:false });
+            group.add(bgRect, textNode);
+            group.on('dragend', () => scheduleAutoSave());
+            tab.layer.add(group);
+            tab.layer.draw();
+            selectItem(group);
+        }
+    }
+
+    async function exportPDF() {
+        deselectItem();
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p','pt','a4');
+        const pdfW=pdf.internal.pageSize.getWidth(), pdfH=pdf.internal.pageSize.getHeight();
+        const margin=45, maxCW=pdfW-(margin*2);
+        let isFirst=true;
+
+        const loadImg=(src)=>new Promise(res=>{
+            if(!src)return res(null);
+            const img=new Image(); img.onload=()=>res({img,w:img.width,h:img.height}); img.onerror=()=>res(null); img.src=src;
+        });
+        function drawBorder(doc){doc.setDrawColor(30,41,59);doc.setLineWidth(1.5);doc.rect(15,15,pdfW-30,pdfH-30);}
+        function drawFallbackBanner(doc,y){
+            doc.setFillColor(15,23,42);doc.rect(15,y,pdfW-30,90,'F');
+            doc.setTextColor(255,255,255);doc.setFontSize(22);doc.setFont("helvetica","bold");doc.text("Vastu Consultation Report",pdfW/2,y+45,{align:'center'});
+            doc.setFontSize(10);doc.setFont("helvetica","normal");doc.setTextColor(203,213,225);doc.text("Professional Space & Energy Alignment Analysis",pdfW/2,y+65,{align:'center'});
+        }
+
+        const tabIds = Object.keys(tabs);
+        if(tabIds.length===0) { alert("No rooms to export. Please add at least one room tab."); return; }
+
+        for(const tabId of tabIds) {
+            const tab=tabs[tabId];
+            if(!isFirst) pdf.addPage();
+            isFirst=false;
+            drawBorder(pdf);
+            let curY=15;
+            const headerData=await loadImg(savedBanner);
+            if(headerData){
+                const hH=(headerData.h/headerData.w)*(pdfW-30);
+                try{pdf.addImage(headerData.img,'PNG',15,curY,pdfW-30,hH);curY+=hH+15;}
+                catch(e){drawFallbackBanner(pdf,curY);curY+=120;}
+            } else {drawFallbackBanner(pdf,curY);curY+=120;}
+
+            pdf.setTextColor(30,41,59);pdf.setFontSize(16);pdf.setFont("helvetica","bold");
+            pdf.text(`${ROOM_DEFS[tab.typeName]?.emoji||''} ${tab.tabLabel||tab.typeName}`,margin,curY+20);
+            curY+=40;
+            tab.stage.width(tab.stage.width()); 
+            const nodes=tab.layer.find('.room,.compass,.sticky');
+            let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity,has=false;
+            nodes.forEach(n=>{const b=n.getClientRect({skipTransform:false});if(b.width>0&&b.height>0){has=true;minX=Math.min(minX,b.x);minY=Math.min(minY,b.y);maxX=Math.max(maxX,b.x+b.width);maxY=Math.max(maxY,b.y+b.height);}});
+            let dataUrl, ratio;
+            if(has){const pad=10,cX=minX-pad,cY=minY-pad,cW=(maxX-minX)+pad*2,cH=(maxY-minY)+pad*2;dataUrl=await tab.stage.toDataURL({x:cX,y:cY,width:cW,height:cH,pixelRatio:3});ratio=cW/cH;}
+            else{dataUrl=await tab.stage.toDataURL({pixelRatio:2});ratio=tab.stage.width()/tab.stage.height();}
+
+            const avH=pdfH-curY-160;
+            let imgW=maxCW, imgH=imgW/ratio;
+            if(imgH>avH){imgH=avH;imgW=imgH*ratio;}
+            const xOff=(pdfW-imgW)/2;
+            pdf.setDrawColor(203,213,225);pdf.setLineWidth(1);pdf.rect(xOff-1,curY-1,imgW+2,imgH+2);
+            pdf.addImage(dataUrl,'PNG',xOff,curY,imgW,imgH);
+            curY+=imgH+20;
+
+            const remarksText=document.getElementById('global-remarks').value||'No remarks provided.';
+            const split=pdf.splitTextToSize(remarksText,maxCW-30);
+            const boxH=split.length*15+45;
+            pdf.setFillColor(248,250,252);pdf.setDrawColor(226,232,240);pdf.setLineWidth(1);pdf.rect(margin,curY,maxCW,boxH,'FD');
+            pdf.setTextColor(30,41,59);pdf.setFontSize(13);pdf.setFont("helvetica","bold");pdf.text("Consultant Remarks",margin+15,curY+22);
+            pdf.setTextColor(71,85,105);pdf.setFontSize(10);pdf.setFont("helvetica","normal");pdf.text(split,margin+15,curY+40,{lineHeightFactor:1.5});
+            curY+=boxH+15;
+
+            const footY=pdfH-90;
+            pdf.setDrawColor(226,232,240);pdf.line(margin,footY-20,pdfW-margin,footY-20);
+            pdf.setTextColor(30,41,59);pdf.setFontSize(12);pdf.setFont("helvetica","bold");pdf.text("Akshay Vastu Arvind",margin,footY);
+            pdf.setTextColor(100,116,139);pdf.setFontSize(10);pdf.setFont("helvetica","normal");
+            pdf.text("by Adv. Arvind Vaze",margin,footY+15);
+            pdf.text("Available in English, Marathi, Hindi, Gujarati",margin,footY+30);
+            pdf.setTextColor(30,41,59);pdf.setFontSize(12);pdf.setFont("helvetica","bold");pdf.text("Amardeep Vaze",pdfW-margin,footY,{align:"right"});
+            pdf.setTextColor(100,116,139);pdf.setFontSize(10);pdf.setFont("helvetica","normal");
+            pdf.text("Vastu Consultant",pdfW-margin,footY+15,{align:"right"});
+            pdf.text("+91 9819826566 | amarvaze@rediffmail.com",pdfW-margin,footY+30,{align:"right"});
+            pdf.text("2nd Floor, Waknis Bldg., T.G. Path Corner, Girgaum, Mumbai - 400 004.",pdfW-margin,footY+45,{align:"right"});
+        }
+        pdf.save("Vastu_Report.pdf");
+    }
+
+    window.addEventListener('resize', () => {
+        const tab = getTab(); if(!tab) return;
+        const w = document.getElementById('canvas-wrapper');
+        tab.stage.width(w.offsetWidth);
+        tab.stage.height(w.offsetHeight);
+        tab.layer.draw();
+    });
+</script>
+</body>
+</html>
